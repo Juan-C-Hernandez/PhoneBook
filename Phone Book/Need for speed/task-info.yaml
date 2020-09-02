@@ -1,0 +1,211 @@
+type: edu
+custom_name: stage3
+files:
+- name: src/phonebook/Main.java
+  visible: true
+  text: |-
+    package phonebook;
+
+    import java.awt.*;
+    import java.io.IOException;
+    import java.nio.file.Files;
+    import java.nio.file.Path;
+    import java.nio.file.Paths;
+    import java.util.Arrays;
+    import java.util.List;
+    import java.util.function.BiFunction;
+    import java.util.function.Function;
+
+    public class Main {
+        public static void main(String[] args) throws IOException {
+
+            Path path = Paths.get("C:\\Users\\juanh\\Downloads\\directory.txt");
+            List<String> namesToSearch = Files.readAllLines(Path.of("C:\\Users\\juanh\\Downloads\\find.txt"));
+
+            Contact[] contacts = Files.readAllLines(path)
+                    .stream().map(line -> Arrays.asList(line.split("\\s+")))
+                    .map(Contact::new).toArray(Contact[]::new);
+
+            System.out.println("Start searching...");
+            int found = 0;
+            long startLinear = System.currentTimeMillis();
+            for (String name : namesToSearch) {
+                if (linearSearch(contacts, name) >= 0) {
+                    found++;
+                }
+            }
+            long totalLinear = System.currentTimeMillis() - startLinear;
+            System.out.print("Found " + found + " / 500 entries. ");
+            System.out.println("Time taken: " +     millisToString(totalLinear));
+
+            System.out.println();
+            System.out.println("Start searching (bubble sort + jump search)...");
+            found = 0;
+            long sortingStart = System.currentTimeMillis();
+            boolean finishedSorting = bubbleSort(contacts, totalLinear * 10);
+            long sortingTotal = System.currentTimeMillis() - sortingStart;
+
+            BiFunction<Contact[], String, Integer> searchFunction = finishedSorting ? Main::jumpSearch : Main::linearSearch;
+
+            long searchingTime = System.currentTimeMillis();
+            for (String name : namesToSearch) {
+                if (searchFunction.apply(contacts, name) >= 0) {
+                    found++;
+                }
+            }
+            long searchingTimeTotal = System.currentTimeMillis() - searchingTime;
+
+            System.out.print("Found " + found + " / 500 entries. ");
+            System.out.println("Time taken: " +     millisToString(sortingTotal + searchingTimeTotal));
+            System.out.print("Sorting time: " + millisToString(sortingTotal));
+            System.out.println(!finishedSorting ? " - STOPPED, moved to linear search" : "");
+            System.out.println("Searching time: " + millisToString(searchingTimeTotal));
+
+        }
+
+        public static String millisToString(long millis) {
+            int sec = (int) (millis / 1000) % 60;
+            int min = (int) (millis / 1000) / 60;
+            int mil = (int) (millis % 1000);
+
+            return min + " min. " + sec + " sec. " + mil + " ms.";
+        }
+
+        public static boolean bubbleSort(Contact[] contacts, long maxTime) {
+            long start = System.currentTimeMillis();
+            long total = 0;
+            for (int i = 0; i < contacts.length - 1; i++) {
+                for (int j = 0; j < contacts.length - 1 - i; j++) {
+                    if (contacts[j].compareTo(contacts[j + 1]) > 0) {
+                        Contact tmp = contacts[j];
+                        contacts[j] = contacts[j + 1];
+                        contacts[j + 1] = tmp;
+                    }
+                }
+                total = System.currentTimeMillis() - start;
+                if (total > maxTime) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public static int jumpSearch(Contact[] contacts, String name) {
+            if (contacts.length == 0) {
+                return -1;
+            }
+
+            if (contacts[0].getFullName().compareToIgnoreCase(name) == 0) {
+                return 0;
+            }
+
+            int right = 0;
+            int left = 0;
+            int blockSize = (int) Math.sqrt(contacts.length);
+
+            while (right < contacts.length - 1) {
+                right = Math.min(contacts.length - 1, right + blockSize);
+                if (contacts[right].getFullName().compareToIgnoreCase(name) >= 0) {
+                    break;
+                }
+
+                left = right;
+            }
+
+            if (contacts[right].getFullName().compareToIgnoreCase(name) > 0) {
+                return -1;
+            }
+
+            for (int i = right; i > left; i--) {
+                if (contacts[right].getFullName().compareToIgnoreCase(name) == 0) {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        public static int linearSearch(Contact[] contacts, String name) {
+            if (contacts.length == 0) {
+                return -1;
+            }
+            for (int i = 0; i < contacts.length; i++) {
+                if (contacts[i].getFullName().compareToIgnoreCase(name) == 0) {
+                    return i;
+                }
+            }
+            return -1;
+        }
+    }
+  learner_created: false
+- name: test/PhoneBookTest.java
+  visible: false
+  text: "import org.hyperskill.hstest.stage.StageTest;\nimport org.hyperskill.hstest.testcase.CheckResult;\n\
+    import org.hyperskill.hstest.testcase.TestCase;\nimport phonebook.Main;\n\nimport\
+    \ java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\nimport\
+    \ java.util.regex.Matcher;\nimport java.util.regex.Pattern;\n\npublic class PhoneBookTest\
+    \ extends StageTest {\n    public PhoneBookTest() {\n        super(Main.class);\n\
+    \    }\n    \n    private long timeOnTestStart;\n    \n    @Override\n    public\
+    \ List<TestCase> generate() {\n        timeOnTestStart = System.currentTimeMillis();\n\
+    \        return Arrays.asList(\n                new TestCase().setTimeLimit(30\
+    \ * 60 * 1000)\n        );\n    }\n    \n    private CheckResult checkPhrases(String\
+    \ reply, String... phrases) {\n        reply = reply.toLowerCase();\n        for\
+    \ (String phrase : phrases) {\n            if (!reply.contains(phrase.toLowerCase()))\
+    \ {\n                return CheckResult.wrong(\"Not found the part `\" + phrase\
+    \ + \"` in your output.\");\n            }\n        }\n        return CheckResult.correct();\n\
+    \    }\n    \n    private List<String> findAll(String reply, String regex) {\n\
+    \        Matcher matcher = Pattern.compile(regex).matcher(reply);\n        List<String>\
+    \ groups = new ArrayList<>();\n        while (matcher.find()) {\n            groups.add(matcher.group());\n\
+    \        }\n        return groups;\n    }\n    \n    private String timeRegex\
+    \ = \"(\\\\d+)\\\\s*min.*?(\\\\d+)\\\\s*sec.*?(\\\\d+)\\\\s*ms\";\n    private\
+    \ Pattern timeRegexPattern = Pattern.compile(timeRegex);\n    \n    private long\
+    \ parseTimestamp(String timestamp) {\n        Matcher matcher = timeRegexPattern.matcher(timestamp);\n\
+    \        if (!matcher.matches() || matcher.groupCount() < 3) {\n            throw\
+    \ new IllegalStateException(\"???Not matches the line \" + timestamp);\n     \
+    \   }\n        int min = Integer.parseInt(matcher.group(1));\n        int sec\
+    \ = Integer.parseInt(matcher.group(2));\n        int ms = Integer.parseInt(matcher.group(3));\n\
+    \        return ms + sec * 1000 + min * 1000 * 60;\n    }\n    \n    @Override\n\
+    \    public CheckResult check(String reply, Object clue) {\n        long realTime\
+    \ = System.currentTimeMillis() - timeOnTestStart;\n        \n        reply = reply.toLowerCase();\n\
+    \        \n        CheckResult res = checkPhrases(reply,\n                \"found\"\
+    ,\n                \"min.\",\n                \"sec.\",\n                \"ms.\"\
+    ,\n                \"sorting time\",\n                \"searching time\",\n  \
+    \              \"linear search\",\n                \"bubble sort\",\n        \
+    \        \"jump search\",\n                \"quick sort\",\n                \"\
+    binary search\"\n        );\n        if (!res.isCorrect()) {\n            return\
+    \ res;\n        }\n        \n        List<String> stat1 = findAll(reply, \"500\
+    \ / 500\");\n        List<String> stat2 = findAll(reply, \"500/500\");\n     \
+    \   \n        if (stat1.size() + stat2.size() < 3) {\n            return CheckResult.wrong(\"\
+    Your output should contain 3 times the phrase `500 / 500`\");\n        }\n   \
+    \     \n        List<String> timestamps = findAll(reply, timeRegex);\n       \
+    \ if (timestamps.size() != 7) {\n            return CheckResult.wrong(\"Your output\
+    \ should contain 7 timer outputs, but found \"\n                    + timestamps.size());\n\
+    \        }\n        // should not fail..\n        long t1 = parseTimestamp(timestamps.get(0));\n\
+    \        long t2 = parseTimestamp(timestamps.get(1));\n        long t3 = parseTimestamp(timestamps.get(2));\n\
+    \        long t4 = parseTimestamp(timestamps.get(3));\n        long t5 = parseTimestamp(timestamps.get(4));\n\
+    \        long t6 = parseTimestamp(timestamps.get(5));\n        long t7 = parseTimestamp(timestamps.get(6));\n\
+    \        \n        if (Math.abs(t3 + t4 - t2) > 100) {\n            return CheckResult.wrong(\"\
+    Your third and fourth timer outputs in total (sorting and searching) \" +\n  \
+    \                  \"should be equal to the second (total search time).\");\n\
+    \        }\n        if (Math.abs(t6 + t7 - t5) > 100) {\n            return CheckResult.wrong(\"\
+    Your 6-th and 7-th timer outputs in total (sorting and searching) \" +\n     \
+    \               \"should be equal to the 5-th (total search time).\");\n     \
+    \   }\n        \n        long estimatedTime = t1 + t2 + t5;\n        if (realTime\
+    \ < 1000) {\n            return CheckResult.wrong(\"Your program completes too\
+    \ fast. Faster than a second!\");\n        }\n        \n        if (Math.abs(estimatedTime\
+    \ - realTime) > estimatedTime * 0.3) {\n            return CheckResult.wrong(\"\
+    Your estimated time is not similar to real time the program works. \" +\n    \
+    \                \"Real time: \" + realTime + \"ms, estimated time: \" + estimatedTime\
+    \ + \"ms\");\n        }\n        \n        return CheckResult.correct();\n   \
+    \ }\n}\n"
+  learner_created: false
+- name: src/phonebook/Contact.java
+  visible: true
+  learner_created: true
+feedback_link: https://hyperskill.org/projects/63/stages/342/implement
+status: Solved
+feedback:
+  message: Congratulations! Continue on <a href="https://hyperskill.org/projects/63/stages/342/implement">JetBrains
+    Academy</a>
+  time: Wed, 02 Sep 2020 01:48:12 UTC
+record: 4
